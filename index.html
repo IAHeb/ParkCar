@@ -1,15 +1,320 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <title>Title</title>
-        <link rel="stylesheet" href="styles.css" />
-        <script src="script.js"></script>
-    </head>
-    <body>
-        <h1 class="title">Hello World</h1>
-        <div id="mainDiv">Hello Div</div>
-        <br />
-        <button onclick="buttonClicked()">Click me</button>
-    </body>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro de Parqueo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        /* Estilo para la fuente Inter */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Estilos personalizados adicionales */
+        .table-auto th, .table-auto td {
+            border: 1px solid #e2e8f0; /* slate-200 */
+            padding: 0.75rem; /* p-3 */
+        }
+        .table-auto th {
+            background-color: #1e293b; /* slate-800 (más oscuro para contraste con texto claro) */
+            color: #e2e8f0; /* slate-200 */
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Estilos para mensajes de carga/error */
+        .status-message {
+            padding: 0.75rem;
+            border-radius: 0.375rem;
+            margin-top: 0.5rem;
+            text-align: center;
+            word-break: break-word; /* Para que los mensajes largos no rompan el layout */
+        }
+        .status-loading {
+            background-color: #3b82f6; /* bg-blue-500 */
+            color: white;
+        }
+        .status-success {
+            background-color: #10b981; /* bg-green-500 */
+            color: white;
+        }
+        .status-error {
+            background-color: #ef4444; /* bg-red-500 */
+            color: white;
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-br from-slate-900 to-slate-700 min-h-screen flex flex-col items-center justify-center p-4 text-slate-100">
+
+    <div class="bg-slate-800 shadow-2xl rounded-xl p-6 md:p-10 w-full max-w-3xl">
+        <header class="text-center mb-8">
+            <svg class="w-20 h-20 mx-auto mb-4 text-sky-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" />
+            </svg>
+            <h1 class="text-4xl font-bold text-sky-400">Registro de Parqueo</h1>
+        </header>
+
+        <section id="estadoCargaArchivo" class="mb-6">
+             <p id="mensajeCargaGlobal" class="status-message hidden"></p>
+        </section>
+
+        <fieldset id="fieldsetBusqueda" disabled class="mb-8">
+            <legend class="sr-only">Buscar Placa</legend>
+            <div class="p-4 bg-slate-700 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-3 text-sky-300">Buscar Placa</h2>
+                <form id="formBusquedaPlaca" class="flex flex-col sm:flex-row items-center gap-3">
+                    <label for="placaInput" class="sr-only">Número de Placa</label>
+                    <input type="text" id="placaInput" placeholder="Ingrese Número de Placa (ej: ABC-123)" class="flex-grow p-3 rounded-lg border-2 border-slate-600 focus:border-sky-500 focus:ring-sky-500 bg-slate-700 text-slate-100 placeholder-slate-400 transition duration-150 ease-in-out disabled:opacity-50">
+                    <button type="submit" id="botonBuscar" class="w-full sm:w-auto bg-sky-500 hover:bg-sky-600 text-white font-semibold p-3 rounded-lg shadow-md hover:shadow-lg transition duration-150 ease-in-out flex items-center justify-center gap-2 disabled:opacity-50">
+                        <i class="fas fa-search"></i> Buscar
+                    </button>
+                </form>
+                <p id="mensajeErrorBusqueda" class="text-red-400 mt-3 text-center"></p>
+            </div>
+        </fieldset>
+
+        <section id="infoVehiculo" class="mb-8 p-6 bg-slate-700 rounded-lg shadow-lg hidden fade-in">
+            <h2 class="text-2xl font-semibold mb-4 text-sky-300 border-b border-slate-600 pb-2">Información del Vehículo</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-lg">
+                <div><strong>Placa:</strong> <span id="displayPlaca" class="font-mono"></span></div>
+                <div><strong>Tipo:</strong> <span id="displayTipoVehiculo"></span></div>
+                <div><strong>Propietario:</strong> <span id="displayNombrePropietario"></span></div>
+            </div>
+        </section>
+
+        <section id="historialPagos" class="hidden fade-in">
+            <h2 class="text-2xl font-semibold mb-4 text-sky-300 border-b border-slate-600 pb-2">Historial de Pagos</h2>
+            <div class="overflow-x-auto rounded-lg shadow-lg">
+                <table class="w-full table-auto text-left text-slate-200">
+                    <thead class="bg-slate-600 text-slate-100">
+                        <tr>
+                            <th class="p-3">Fecha de Pago</th>
+                            <th class="p-3">Monto</th>
+                            <th class="p-3">No. Pago</th>
+                            <th class="p-3">Mes</th>
+                            <th class="p-3">Observaciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaPagosBody" class="bg-slate-700">
+                        </tbody>
+                </table>
+            </div>
+            <p id="mensajeNoPagos" class="text-center mt-4 text-slate-400 hidden">No se encontraron registros de pagos para esta placa.</p>
+        </section>
+    </div>
+
+    <script>
+        // --- VARIABLES GLOBALES PARA LOS DATOS ---
+        let vehiculos_data = [];
+        let registropagos_data = [];
+
+        // --- URL DEL ARCHIVO EXCEL EN EL SERVIDOR ---
+        // !!! IMPORTANTE: Reemplaza esta URL con la URL real de tu archivo Excel !!!
+        const excelFileUrl = 'https://raw.githubusercontent.com//CONTROLGARAJE.xlsx'; // Ejemplo: 'https://www.miservidor.com/CONTROLGARAJE.xlsx'
+
+        // --- ELEMENTOS DEL DOM ---
+        const mensajeCargaGlobal = document.getElementById('mensajeCargaGlobal');
+        const fieldsetBusqueda = document.getElementById('fieldsetBusqueda');
+        const formBusqueda = document.getElementById('formBusquedaPlaca');
+        const placaInput = document.getElementById('placaInput');
+        const mensajeErrorBusqueda = document.getElementById('mensajeErrorBusqueda');
+        const infoVehiculoSection = document.getElementById('infoVehiculo');
+        const displayPlaca = document.getElementById('displayPlaca');
+        const displayTipoVehiculo = document.getElementById('displayTipoVehiculo');
+        const displayNombrePropietario = document.getElementById('displayNombrePropietario');
+        const historialPagosSection = document.getElementById('historialPagos');
+        const tablaPagosBody = document.getElementById('tablaPagosBody');
+        const mensajeNoPagos = document.getElementById('mensajeNoPagos');
+
+        // --- FUNCIÓN PARA MOSTRAR MENSAJES GLOBALES DE CARGA ---
+        function mostrarMensajeGlobal(mensaje, tipo = 'loading') {
+            mensajeCargaGlobal.textContent = mensaje;
+            mensajeCargaGlobal.className = 'status-message'; // Reset classes
+            if (tipo === 'loading') {
+                mensajeCargaGlobal.classList.add('status-loading');
+            } else if (tipo === 'success') {
+                mensajeCargaGlobal.classList.add('status-success');
+            } else if (tipo === 'error') {
+                mensajeCargaGlobal.classList.add('status-error');
+            }
+            mensajeCargaGlobal.classList.remove('hidden');
+        }
+
+        // --- LÓGICA DE CARGA DEL ARCHIVO EXCEL DESDE EL SERVIDOR ---
+        async function cargarDatosDesdeServidor(url) {
+            mostrarMensajeGlobal('Cargando datos desde el servidor...', 'loading');
+            limpiarResultadosBusqueda();
+            fieldsetBusqueda.disabled = true;
+
+            try {
+                const response = await fetch(url); // Intenta obtener el archivo
+                
+                // Verifica si la respuesta del servidor fue exitosa (status 200-299)
+                if (!response.ok) {
+                    let errorMsg = `Error al descargar el archivo (HTTP ${response.status}): ${response.statusText}. `;
+                    errorMsg += `Verifica que la URL "${url}" sea correcta y que el archivo exista. `;
+                    if (response.status === 0 || response.type === 'opaque' || response.type === 'error') { // Tipos de error que pueden indicar CORS
+                         errorMsg += `Esto también podría ser un problema de CORS. Asegúrate de que el servidor del archivo Excel permita solicitudes desde el origen de esta página.`;
+                    } else {
+                         errorMsg += `Consulta la consola del navegador (F12) para más detalles.`;
+                    }
+                    throw new Error(errorMsg);
+                }
+                const arrayBuffer = await response.arrayBuffer(); // Obtiene los datos como ArrayBuffer
+
+                // Procesar el archivo Excel
+                const data = new Uint8Array(arrayBuffer);
+                const workbook = XLSX.read(data, { type: 'array' });
+
+                // Leer la hoja de VEHICULOS
+                const vehiculosSheetName = 'VEHICULOS';
+                if (!workbook.SheetNames.includes(vehiculosSheetName)) {
+                    throw new Error(`La hoja "${vehiculosSheetName}" no se encontró en el archivo Excel.`);
+                }
+                const vehiculosSheet = workbook.Sheets[vehiculosSheetName];
+                vehiculos_data = XLSX.utils.sheet_to_json(vehiculosSheet, {
+                    header: ["placa", "tipoVehiculo", "nombrePropietario"],
+                    range: 1 
+                }).map(v => ({
+                    ...v,
+                    placa: String(v.placa) 
+                }));
+
+                // Leer la hoja de REGISTROPAGOS
+                const pagosSheetName = 'REGISTROPAGOS';
+                if (!workbook.SheetNames.includes(pagosSheetName)) {
+                    throw new Error(`La hoja "${pagosSheetName}" no se encontró en el archivo Excel.`);
+                }
+                const pagosSheet = workbook.Sheets[pagosSheetName];
+                registropagos_data = XLSX.utils.sheet_to_json(pagosSheet, {
+                    header: ["placa", "fechaPago", "monto", "noPago", "mes", "observaciones"],
+                    range: 1
+                }).map(pago => {
+                    if (typeof pago.fechaPago === 'number') {
+                        const dateInfo = XLSX.SSF.parse_date_code(pago.fechaPago);
+                        if (dateInfo) {
+                            const year = dateInfo.y;
+                            const month = String(dateInfo.m).padStart(2, '0');
+                            const day = String(dateInfo.d).padStart(2, '0');
+                            pago.fechaPago = `${year}-${month}-${day}`;
+                        } else {
+                            pago.fechaPago = "Fecha inválida";
+                        }
+                    }
+                    pago.placa = String(pago.placa);
+                    return pago;
+                });
+
+                mostrarMensajeGlobal(`Datos cargados correctamente. ${vehiculos_data.length} vehículos y ${registropagos_data.length} registros de pago encontrados.`, 'success');
+                fieldsetBusqueda.disabled = false;
+                placaInput.focus();
+
+            } catch (err) {
+                // Este catch se activa si fetch falla por completo (ej. red, DNS, CORS severo) o si hay errores en el procesamiento
+                console.error("Error detallado en cargarDatosDesdeServidor:", err);
+                let friendlyMessage = `Error al cargar o procesar el archivo Excel: ${err.message}. `;
+                if (err.message.toLowerCase().includes('failed to fetch') || err.message.toLowerCase().includes('networkerror')) {
+                    friendlyMessage += `Asegúrate de que la URL del archivo es correcta, el servidor está en línea y no hay problemas de CORS. Revisa la consola del navegador (F12) para más detalles.`;
+                }
+                mostrarMensajeGlobal(friendlyMessage, 'error');
+                vehiculos_data = [];
+                registropagos_data = [];
+            }
+        }
+
+        // --- LÓGICA DE BÚSQUEDA DE PLACA ---
+        formBusqueda.addEventListener('submit', function(event) {
+            event.preventDefault();
+            const placaBuscada = placaInput.value.trim().toUpperCase();
+
+            limpiarResultadosBusquedaParcial();
+
+            if (!placaBuscada) {
+                mensajeErrorBusqueda.textContent = 'Por favor, ingrese un número de placa.';
+                return;
+            }
+
+            const vehiculo = vehiculos_data.find(v => v.placa.toUpperCase() === placaBuscada);
+
+            if (vehiculo) {
+                displayPlaca.textContent = vehiculo.placa;
+                displayTipoVehiculo.textContent = vehiculo.tipoVehiculo;
+                displayNombrePropietario.textContent = vehiculo.nombrePropietario;
+                infoVehiculoSection.classList.remove('hidden');
+
+                const pagos = registropagos_data.filter(p => p.placa.toUpperCase() === placaBuscada);
+                if (pagos.length > 0) {
+                    mostrarHistorialPagos(pagos);
+                    historialPagosSection.classList.remove('hidden');
+                    mensajeNoPagos.classList.add('hidden');
+                } else {
+                    tablaPagosBody.innerHTML = '';
+                    mensajeNoPagos.classList.remove('hidden');
+                    historialPagosSection.classList.remove('hidden');
+                }
+            } else {
+                mensajeErrorBusqueda.textContent = `No se encontró información para la placa ${placaBuscada}.`;
+            }
+        });
+
+        function mostrarHistorialPagos(pagos) {
+            tablaPagosBody.innerHTML = '';
+            pagos.forEach(pago => {
+                const montoFormateado = (typeof pago.monto === 'number' && !isNaN(pago.monto))
+                                        ? pago.monto.toFixed(2)
+                                        : (pago.monto || '');
+                const fila = `
+                    <tr class="hover:bg-slate-600 transition-colors duration-150">
+                        <td class="p-3">${pago.fechaPago || ''}</td>
+                        <td class="p-3">${montoFormateado}</td>
+                        <td class="p-3">${pago.noPago || ''}</td>
+                        <td class="p-3">${pago.mes || ''}</td>
+                        <td class="p-3">${pago.observaciones || ''}</td>
+                    </tr>
+                `;
+                tablaPagosBody.innerHTML += fila;
+            });
+        }
+
+        function limpiarResultadosBusquedaParcial() {
+            mensajeErrorBusqueda.textContent = '';
+            infoVehiculoSection.classList.add('hidden');
+            historialPagosSection.classList.add('hidden');
+            mensajeNoPagos.classList.add('hidden');
+            displayPlaca.textContent = '';
+            displayTipoVehiculo.textContent = '';
+            displayNombrePropietario.textContent = '';
+            tablaPagosBody.innerHTML = '';
+        }
+
+        function limpiarResultadosBusqueda() {
+            limpiarResultadosBusquedaParcial();
+        }
+
+        placaInput.addEventListener('input', function() {
+            if (placaInput.value.trim() === '') {
+                limpiarResultadosBusquedaParcial();
+            }
+        });
+
+        // --- INICIAR CARGA DE DATOS AL CARGAR LA PÁGINA ---
+        document.addEventListener('DOMContentLoaded', () => {
+            if (excelFileUrl === 'TU_URL_AL_ARCHIVO/CONTROLGARAJE.xlsx') { // Comprobación estricta
+                 mostrarMensajeGlobal('CONFIGURACIÓN NECESARIA: Por favor, actualiza la variable "excelFileUrl" en el script con la URL real de tu archivo Excel.', 'error');
+                 fieldsetBusqueda.disabled = true;
+            } else {
+                cargarDatosDesdeServidor(excelFileUrl);
+            }
+        });
+
+    </script>
+</body>
 </html>
+
