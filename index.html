@@ -180,7 +180,7 @@
                 }
                 const vehiculosSheet = workbook.Sheets[vehiculosSheetName];
                 vehiculos_data = XLSX.utils.sheet_to_json(vehiculosSheet, {
-                    header: ["placa", "tipoVehiculo", "nombrePropietario"],
+                    header: ["placa", "tipoVehiculo", "nombre"],
                     range: 1 
                 }).map(v => ({
                     ...v,
