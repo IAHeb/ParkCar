@@ -246,7 +246,7 @@
             if (vehiculo) {
                 displayPlaca.textContent = vehiculo.placa;
                 displayTipoVehiculo.textContent = vehiculo.tipoVehiculo;
-                displayNombrePropietario.textContent = vehiculo.nombrePropietario;
+                displayNombrePropietario.textContent = vehiculo.nombre;
                 infoVehiculoSection.classList.remove('hidden');
 
                 const pagos = registropagos_data.filter(p => p.placa.toUpperCase() === placaBuscada);
