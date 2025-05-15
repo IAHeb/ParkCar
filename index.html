@@ -174,7 +174,7 @@
                 const workbook = XLSX.read(data, { type: 'array' });
 
                 // Leer la hoja de VEHICULOS
-                const vehiculosSheetName = 'VEHICULOS';
+                const vehiculosSheetName = 'Vehiculos';
                 if (!workbook.SheetNames.includes(vehiculosSheetName)) {
                     throw new Error(`La hoja "${vehiculosSheetName}" no se encontró en el archivo Excel.`);
                 }
